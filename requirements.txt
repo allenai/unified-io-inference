@@ -1,0 +1,11 @@
+einops
+flax
+absl-py
+
+# For T5 tokenizer
+transformers
+sentencepiece
+
+# Just used for image resizing
+torch
+torchvision
