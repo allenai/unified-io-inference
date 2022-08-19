@@ -3,7 +3,6 @@
 import functools
 from typing import Any, Callable, Mapping, MutableMapping, Optional, Tuple, Type, Union
 from flax import linen as nn
-from flax import optim
 from flax.core import scope as flax_scope
 from flax.training import common_utils
 import jax
@@ -14,7 +13,6 @@ import typing_extensions
 from uio import decoding
 
 Array = Union[np.ndarray, jnp.ndarray, jax.pxla.ShardedDeviceArray]
-Optimizer = optim.Optimizer
 PyTreeDef = type(jax.tree_util.tree_structure(None))
 
 
