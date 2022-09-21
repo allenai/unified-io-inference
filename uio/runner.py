@@ -268,12 +268,18 @@ class ModelRunner:
   def _extract_boxes(self, out, image_size, include_labels=False):
     tokens = out["text_tokens"][0]
     if len(tokens) == 1:
-      all_labels, all_boxes = utils.tokens_to_regions(tokens[0], image_size)
+      try:
+        all_labels, all_boxes = utils.tokens_to_regions(tokens[0], image_size)
+      except:
+        all_labels, all_boxes = [], np.zeros((1, 4))
     else:
       all_boxes = []
       all_labels = []
       for line in tokens:
-        labels, boxes = utils.tokens_to_regions(line, image_size)
+        try:
+          labels, boxes = utils.tokens_to_regions(line, image_size)
+        except:
+          labels, boxes = [], np.zeros((1, 4))
         all_labels.append(labels)
         all_boxes.append(boxes)
 

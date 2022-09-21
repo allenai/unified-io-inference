@@ -237,7 +237,7 @@ class UnifiedIOModel(nn.Module):
     text_loss = jnp.concatenate(all_losses, -1)
     selected_option_ix = jnp.argmin(text_loss, -1)
     ix = jnp.arange(0, len(selected_option_ix))
-    selected_options = output_options[ix, selected_option_ix]
+    selected_options = batch["output_options"][ix, selected_option_ix]
     text_loss = text_loss[ix, selected_option_ix]
 
     return {'scores': text_loss, 'text_tokens': selected_options}

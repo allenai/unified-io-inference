@@ -67,10 +67,9 @@ def tokens_to_regions(predicted_tokens, image_size, token_per_label=4) -> Tuple[
     if cur >= len(predicted_tokens) or predicted_tokens[cur] == 1:
       # end of sequence
       break
-    if not np.all(predicted_tokens[cur:cur+token_per_label] > BIN_START):
-      # error, should be a list of locations then label
-      raise ValueError()
-    locations.append(vocab_size-predicted_tokens[cur:cur+token_per_label] - 100)
+    # skip if parse failure occurs
+    if np.all(predicted_tokens[cur:cur+token_per_label] > BIN_START):
+      locations.append(vocab_size-predicted_tokens[cur:cur+token_per_label] - 100)
     cur += token_per_label
     label_end = cur
     while label_end < len(predicted_tokens) and 1 < predicted_tokens[label_end] <= BIN_START:
