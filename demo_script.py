@@ -32,7 +32,7 @@ def main():
 
   model = runner.ModelRunner(args.model_size, args.model_weights)
   with Image.open("dbg_img.png") as img:
-    image = np.array(img)
+    image = np.array(img.convert('RGB'))
   output = model.vqa(image, "What color is the sofa?")
   print(output["text"])  # Should print `green`
 

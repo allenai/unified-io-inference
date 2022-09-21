@@ -45,7 +45,7 @@ from PIL import Image
 model = runner.ModelRunner("small", "small.bin")
 
 with Image.open("dbg_img.png") as img:
-  image = np.array(img)
+  image = np.array(img.convert('RGB'))
 
 # Answer a VQA question, note this might take over a minute the first time it is 
 # called while the function is compiled by jax
