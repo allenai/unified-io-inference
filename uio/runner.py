@@ -131,7 +131,7 @@ class ModelRunner:
           self.model.predict_with_answer_options, static_argnums=[2])
       return self._compiled_option_fn
     else:
-      return self.model.predict_batch_with_aux
+      return self.model.predict_with_answer_options
 
   def run(self, input_images, input_texts, output_text_len=128, generate_image=False,
           beam_search=None, num_decodes=None, answer_options=None, mask_regions=None) -> Dict:
@@ -204,7 +204,7 @@ class ModelRunner:
       if self.log_inputs:
         logging.info(f"Running model text_inputs={input_texts} and "
                      f"{output_options.shape[1]} answer options")
-      out = self.model.predict_with_answer_options(
+      out = self._get_answer_options_fn()(
         params=self.params, batch=batch, max_options=self.max_options)
       # Add a fake beam dimensi7on to be compatible with the no answer options case
       out = {k: jnp.expand_dims(v, 1) for k, v in out.items()}
@@ -235,14 +235,16 @@ class ModelRunner:
         output_text = [x[0] for x in output_text]
       if output_image is not None:
         output_image = [x[0] for x in output_image]
-    out = dict(
+    outputs = dict(
       text_tokens=np.array(out["text_tokens"]),
       text=output_text,
       image_tokens=np.array(out["image_tokens"]) if "image_tokens" in out else None,
       image=np.array(output_image),
       score=np.array(out["scores"]),
     )
-    return out
+    if "all_scores" in out:
+      outputs["all_scores"] = np.array(out["all_scores"])
+    return outputs
 
   def _extract_text(self, out):
     return {k: out[k][0] for k in ["text", "score"]}

@@ -128,7 +128,7 @@ class UnifiedIOModel(nn.Module):
       self,
       rng: jnp.ndarray,
       input_shapes: Mapping[str, Array],
-      input_types: Optional[Mapping[str, jnp.dtype]] = None
+      input_types: Optional[Mapping[str, jnp.dtype]] = None,
   ) -> flax_scope.FrozenVariableDict:
     """Get the initial variables for an encoder-decoder model."""
     input_types = {} if input_types is None else input_types
@@ -229,6 +229,7 @@ class UnifiedIOModel(nn.Module):
       padded_targets = jnp.zeros(soft_targets.shape[:2] + (text_logits.shape[-1] - vocab_size,))
       soft_targets = jnp.concatenate([soft_targets, padded_targets], axis=-1)
       total_loss = cross_entropy_with_logits(text_logits, soft_targets)
+      total_loss = total_loss * text_decoder_masks
 
       text_loss = jnp.sum(total_loss, axis=1)
       text_loss = jnp.reshape(text_loss, [batch_size, -1])
@@ -237,10 +238,9 @@ class UnifiedIOModel(nn.Module):
     text_loss = jnp.concatenate(all_losses, -1)
     selected_option_ix = jnp.argmin(text_loss, -1)
     ix = jnp.arange(0, len(selected_option_ix))
-    selected_options = output_options[ix, selected_option_ix]
-    text_loss = text_loss[ix, selected_option_ix]
-
-    return {'scores': text_loss, 'text_tokens': selected_options}
+    selected_options = batch["output_options"][ix, selected_option_ix]
+    selected_loss = text_loss[ix, selected_option_ix]
+    return {'scores': selected_loss, 'text_tokens': selected_options, "all_scores": text_loss}
 
   def _compute_logits_from_slice(
       self, flat_ids: jnp.ndarray, flat_cache: Mapping[str, jnp.ndarray], cur_index: int,
