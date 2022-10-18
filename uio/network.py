@@ -956,6 +956,9 @@ class Transformer(nn.Module):
   def decode_code(self, code_b):
     return self.discrete_vae.decode_code(code_b)
 
+  def encode_target_image(self, image):
+    return self.discrete_vae.get_codebook_indices(image)
+
   def sample(
       self,
       encoded,
