@@ -1,0 +1,7 @@
+name: uioi
+channels:
+  - defaults
+  - conda-forge
+  - nvidia
+dependencies:
+  - python=3.9
