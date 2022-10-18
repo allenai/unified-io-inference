@@ -17,6 +17,8 @@ VOCAB_START = 100
 IMAGE_INPUT_SIZE = [384, 384]
 IMAGE_INPUT_PATCH_SIZE = 16
 
+IMAGE_TARGET_SIZE = [256, 256]
+
 
 def load_checkpoint(checkpoint):
   """Load a bin file as a tree of jax arrays"""
@@ -216,22 +218,21 @@ def _resize(image: np.ndarray, target_size: Sequence[int],
   return image
 
 
-def resize_and_pad(image: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-  """Resize and pad `image` to size 384x384 and returns a mask over pixels introduced by padding"""
-
+def resize_and_pad(image: np.ndarray, size) -> Tuple[np.ndarray, np.ndarray]:
+  """Resize and pad `image` to `size` and returns a mask over pixels introduced by padding"""
   h, w = image.shape[:2]
-  scale = IMAGE_INPUT_SIZE[0] / max(h, w)
+  scale = size[0] / max(h, w)
   if scale != 1.0:
     scale_to = (int(h*scale), int(w*scale))
     image = _resize(image, scale_to)
   else:
     scale_to = (h, w)
-  image_mask = np.zeros(IMAGE_INPUT_SIZE, dtype=np.bool)
+  image_mask = np.zeros(size, dtype=np.bool)
   image_mask[:scale_to[0], :scale_to[1]] = True
   image = np.pad(
     image,
-    [[0, IMAGE_INPUT_SIZE[0] - scale_to[0]],
-     [0, IMAGE_INPUT_SIZE[1] - scale_to[1]],
+    [[0, size[0] - scale_to[0]],
+     [0, size[1] - scale_to[1]],
      [0, 0]
      ]
   )
@@ -266,7 +267,7 @@ def preprocess_image(input_image, mask_region=None) -> Tuple[np.ndarray, np.ndar
   n_patches = 384//16
   if input_image is not None:
     original_size = input_image.shape
-    input_image, image_mask = resize_and_pad(input_image)
+    input_image, image_mask = resize_and_pad(input_image, IMAGE_INPUT_SIZE)
 
     if mask_region is not None:
       region = mask_region / max(original_size[:2]) * max(input_image.shape[:2])
@@ -288,6 +289,29 @@ def preprocess_image(input_image, mask_region=None) -> Tuple[np.ndarray, np.ndar
     input_image = np.zeros((384, 384, 3), np.float32)
     image_mask = np.zeros((n_patches*n_patches, ), dtype=np.int32)
   input_image = normalize_image(input_image)
+  return input_image, image_mask
+
+
+def preprocess_target_image(target_image) -> Tuple[np.ndarray, np.ndarray]:
+  """Preprocess a target image for processing UnifiedIO
+
+  :param target_image: image array in [h, w, 3] in float or uint8 format
+  :return: preprocessed image and image-patch mask
+  """
+  n_patches = IMAGE_TARGET_SIZE[0]//16
+  if target_image is not None:
+    input_image, image_mask = resize_and_pad(target_image, IMAGE_TARGET_SIZE)
+
+    # Convert mask over pixels to mask of image patches
+    image_mask = _resize(
+      np.expand_dims(image_mask, 2), [n_patches, n_patches],
+      InterpolationMode.NEAREST, antialias=False
+    )
+    image_mask = image_mask.reshape((-1,)).astype(np.int32)
+  else:
+    input_image = np.zeros(IMAGE_TARGET_SIZE + [3], np.float32)
+    image_mask = np.zeros((n_patches*n_patches, ), dtype=np.int32)
+  input_image = input_image * 2 - 1  # VAE pre-processing
   return input_image, image_mask
 
 
