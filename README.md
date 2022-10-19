@@ -79,6 +79,20 @@ Then it can be run with:
 jupyter notebook demo.ipynb
 ```
 
+## Docker 
+To build a docker image:
+```bash
+docker build -t unified-io-inference .
+```
+To run the docker demo:
+```
+docker run -it --gpus=1 unified-io-inference 
+INFO:absl:Setting up model...
+...
+INFO:absl:Model is ready
+INFO:absl:Running model text_inputs=['what color is the sofa?']
+green
+```
 
 ## Just-in-time compilation
 By default `ModelRunner` compiles the underlying inference calls the first time they are used,
