@@ -31,4 +31,5 @@ RUN bash -c ". activate uioi && pip install --upgrade pip \
 
 COPY . .
 RUN bash -c ". activate uioi && python ./uio/test/check.py"
-ENTRYPOINT bash -c ". activate uioi && python ./demo_script.py small small.bin"
+ENV INPUT_FILE=demo.list
+ENTRYPOINT bash -c ". activate uioi && python ./run.py small small.bin $INPUT_FILE"
