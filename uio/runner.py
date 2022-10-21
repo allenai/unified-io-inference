@@ -128,13 +128,14 @@ class ModelRunner:
     if self.compiled:
       if self._compiled_option_fn is None:
         self._compiled_option_fn = jax.jit(
-          self.model.predict_with_answer_options, static_argnums=[2])
+          self.model.predict_with_answer_options, static_argnums=[2, 3])
       return self._compiled_option_fn
     else:
       return self.model.predict_with_answer_options
 
   def run(self, input_images, input_texts, output_text_len=128, generate_image=False,
-          beam_search=None, num_decodes=None, answer_options=None, mask_regions=None) -> Dict:
+          beam_search=None, num_decodes=None, answer_options=None,
+          mask_regions=None, average_loss=False) -> Dict:
     """Runs UnifiedIO on input images/texts and produces output images/text
 
     :param input_images: List of images as [h, w, 3] float32/uint8 arrays or None
@@ -147,15 +148,18 @@ class ModelRunner:
     :param num_decodes: if `None` return one generation for an input, otherwise generate a list
                         `num_decodes` outputs for each example. Also defines the beam size if
                         doing beam search.
-    :param answer_options: List of strings, limits text generation to one of these options
+    :param answer_options: List of strings or images, limits text/image generation to one of these options
     :param mask_regions: Mask these regions from ech image, used for inpainting
+    :param average_loss: If using answer_options, compute the average per-token loss instead of the
+                         total loss
     :return: dictionary outputs with the output text, image, scores and tokens generated
     """
     if answer_options is not None:
-      if generate_image or num_decodes is not None:
+      if num_decodes is not None:
         raise NotImplementedError("Not support if `answer_options` is given")
 
     assert output_text_len <= 128, "128 is the max output text len"
+    assert len(input_images) == len(input_texts), "Different number of text/image inputs"
 
     if beam_search is None:
       beam_search = not generate_image
@@ -190,7 +194,8 @@ class ModelRunner:
         return_all_decodes=True
       )
     else:
-      if isinstance(answer_options[0], str):  # One set of options for the entire batch
+      if isinstance(answer_options[0], str):
+        # One set of strings options for the entire batch
         output_options = np.array(self.tokenizer(
           answer_options, max_length=self.max_input_len, truncation=True,
           padding='longest')["input_ids"], dtype=np.int32)
@@ -198,6 +203,18 @@ class ModelRunner:
         bs = len(input_texts)
         output_options = np.tile(output_options, [bs, 1, 1])
         batch["output_options"] = output_options
+      elif isinstance(answer_options[0], np.ndarray):
+        # One set of image options for the entire batch
+        preprocessed = [utils.preprocess_target_image(x) for x in answer_options]
+        output_options = np.stack([x[0] for x in preprocessed], 0)
+        output_options_mask = np.stack([x[1] for x in preprocessed], 0)
+        bs = len(input_texts)
+        # [batch, n_options, h, w, c]
+        output_options = np.tile(np.expand_dims(output_options, 0), [bs, 1, 1, 1, 1])
+        # [batch, n_options, n_patches]
+        output_options_mask = np.tile(np.expand_dims(output_options_mask, 0), [bs, 1, 1])
+        batch["output_options"] = output_options
+        batch["output_options_masks"] = output_options_mask
       else:
         raise NotImplementedError("Per-example answer options")
 
@@ -205,7 +222,7 @@ class ModelRunner:
         logging.info(f"Running model text_inputs={input_texts} and "
                      f"{output_options.shape[1]} answer options")
       out = self._get_answer_options_fn()(
-        params=self.params, batch=batch, max_options=self.max_options)
+        params=self.params, batch=batch, max_options=self.max_options, average_loss=average_loss)
       # Add a fake beam dimensi7on to be compatible with the no answer options case
       out = {k: jnp.expand_dims(v, 1) for k, v in out.items()}
 
@@ -236,7 +253,7 @@ class ModelRunner:
       if output_image is not None:
         output_image = [x[0] for x in output_image]
     outputs = dict(
-      text_tokens=np.array(out["text_tokens"]),
+      text_tokens=np.array(out["text_tokens"]) if "text_tokens" in out else None,
       text=output_text,
       image_tokens=np.array(out["image_tokens"]) if "image_tokens" in out else None,
       image=np.array(output_image),
