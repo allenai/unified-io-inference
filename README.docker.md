@@ -14,10 +14,11 @@ INFO:absl:Running model text_inputs=['what color is the sofa?']
 green
 ```
 
-To run a list of queries construct an input file where each line if a file path
-and a text input, separated by ':'.
-Prepare a directory containing image files.  'cd' to that directory.
-The steps below with write example input files and docker execution with the 
+To run a list of queries construct an input file where each line is a file path
+and a text input, separated by `:`.  See example: [demo.list](https://github.com/isi-vista/unified-io-inference/blob/docker-build/demo.list)
+
+Prepare a directory containing image files.  `cd` to that directory.
+The steps below will write example input files and docker execution with the 
 host images mounted to the `/image-data` directory.
 
 ```
