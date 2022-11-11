@@ -41,6 +41,7 @@ Then tasks can done using the `ModelRunner` class:
 ```python
 from uio import runner
 from PIL import Image
+import numpy as np
 
 model = runner.ModelRunner("small", "small.bin")
 
