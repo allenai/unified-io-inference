@@ -79,6 +79,8 @@ Then it can be run with:
 jupyter notebook demo.ipynb
 ```
 
+## Docker 
+To build and run a unified-io-inference docker image see: README.docker.md 
 
 ## Just-in-time compilation
 By default `ModelRunner` compiles the underlying inference calls the first time they are used,
