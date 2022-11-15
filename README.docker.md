@@ -22,13 +22,13 @@ host images mounted to the `/image-data` directory.
 
 ```
 ls -1 | grep -E 'jpg|png' > files.txt
-awk '{print "/image-data/" $0 ":What-does-the-image-describe?"}' ./files.txt > caption.txt
+awk '{print "/image-data/" $0 ":What does the image describe?"}' ./files.txt > caption.txt
 awk '{print "/image-data/" $0 ":Locate all objects in the image."}' ./files.txt > locate.txt
 
 #Choose an input file to process:
 export INPUT_FILE=[caption.txt or locate.txt or other]
 export HOSTPATH=$(pwd)
-
-docker run -it --gpus=1 -e INPUT_FILE=/image-data/${INPUT_FILE} \ 
-  -v /${HOSTPATH}:/image-data unified-io-inference
+echo ${HOSTPATH}${INPUT_FILE}
+docker run -it --gpus=1 -e INPUT_FILE=/image-data/${INPUT_FILE} \
+  -v ${HOSTPATH}:/image-data unified-io-inference
 ```

@@ -29,7 +29,13 @@ RUN bash -c ". activate uioi && pip install --upgrade pip \
  -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
  && python3 -m pip install -r requirements.txt"
 
+RUN bash -c ". activate uioi && pip install matplotlib notebook"
+RUN bash -c ". activate uioi && pip install setuptools wheel && pip install spacy \
+ && python3 -m spacy download en_core_web_sm"
+
+ENV PYTHONPATH=/root/uio
+
 COPY . .
-RUN bash -c ". activate uioi && python ./uio/test/check.py"
+RUN bash -c ". activate uioi && export PYTHONPATH=/root:/root/uio && python ./uio/test/check.py"
 ENV INPUT_FILE=demo.list
 ENTRYPOINT bash -c ". activate uioi && python ./run.py xl xl.bin $INPUT_FILE"
