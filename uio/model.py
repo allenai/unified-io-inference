@@ -158,8 +158,10 @@ class UnifiedIOModel(nn.Module):
       self,
       params: PyTreeDef,
       batch: Mapping[str, jnp.ndarray],
-      max_options=800
+      max_options=800,
+      average_loss=False
   ):
+    text_answer_options = len(batch["output_options"].shape) == 3
     text_encoder_inputs = batch['text_encoder_inputs']
     text_encoder_masks = batch.get('text_encoder_masks')
     if text_encoder_masks is None:
@@ -189,26 +191,49 @@ class UnifiedIOModel(nn.Module):
       encoder_position_embedding = decoding.flat_batch_beam_expand(encoder_position_embedding, num_option)
       encoder_masks = decoding.flat_batch_beam_expand(_encoder_masks, num_option)
       encoded_inputs = (encoded, encoder_position_embedding)
-
       decoded_size = batch_size*num_option
 
-      # `output_options` does not have EOS or BOS, we need to do a bit work to correctly-formatted
-      # text inputs/outputs here
-      text_decoder_inputs = output_options.reshape((decoded_size, -1))
-      text_decoder_targets = text_decoder_inputs
-      text_decoder_targets = jnp.pad(text_decoder_targets, [[0, 0], [0, 1]])  # Add room for EOS
+      if text_answer_options:
+        # Text answer options
+        # `output_options` does not have EOS or BOS, we need to do a bit work to correctly-formatted
+        # text inputs/outputs here
+        text_decoder_inputs = output_options.reshape((decoded_size, -1))
+        text_decoder_targets = text_decoder_inputs
+        text_decoder_targets = jnp.pad(text_decoder_targets, [[0, 0], [0, 1]])  # Add room for EOS
 
-      text_decoder_masks = text_decoder_inputs > 0
-      text_decoder_inputs = jnp.pad(text_decoder_inputs, [[0, 0], [1, 0]])
-      text_decoder_masks = jnp.pad(text_decoder_masks, [[0, 0], [1, 0]], constant_values=True)
+        text_decoder_masks = text_decoder_inputs > 0
+        text_decoder_inputs = jnp.pad(text_decoder_inputs, [[0, 0], [1, 0]])
+        text_decoder_masks = jnp.pad(text_decoder_masks, [[0, 0], [1, 0]], constant_values=True)
 
-      eos_mask = jnp.logical_and(text_decoder_masks, text_decoder_targets == 0)
-      text_decoder_targets = text_decoder_targets + eos_mask
+        eos_mask = jnp.logical_and(text_decoder_masks, text_decoder_targets == 0)
+        text_decoder_targets = text_decoder_targets + eos_mask
 
-      # Dummy image values
-      image_decoder_inputs = jnp.zeros([encoded.shape[0], 1], jnp.int32)
-      image_decoder_targets = jnp.zeros([encoded.shape[0], 1], jnp.int32)
-      image_decoder_masks = jnp.zeros([encoded.shape[0], 1], jnp.int32)
+        image_decoder_inputs = jnp.zeros([encoded.shape[0], 1], jnp.int32)
+        image_decoder_targets = jnp.zeros([encoded.shape[0], 1], jnp.int32)
+        image_decoder_masks = jnp.zeros([encoded.shape[0], 1], jnp.int32)
+      else:
+        # Image answer options
+        image_decoder_masks = batch["output_options_masks"][:, i*max_options:(i+1)*max_options]
+        image_decoder_masks = image_decoder_masks.reshape(-1, 256)
+        output_options = output_options.reshape([decoded_size] + list(output_options.shape[2:]))
+
+        # Apply the VAE to get the target tokens
+        image_decoder_targets = self.module.apply(
+          {'params': params},
+          output_options,
+          method=self.module.encode_target_image
+        )
+
+        # Build auto-regressive inputs
+        image_start_token = self.module.config.vocab_size - 1
+        image_decoder_inputs = jnp.concatenate([
+          jnp.zeros((image_decoder_targets.shape[0], 1), dtype=jnp.int32) + image_start_token,
+          image_decoder_targets[:, :-1]], axis=1)
+
+        # Predict EOS to start following the training scheme
+        text_decoder_inputs = jnp.zeros([decoded_size, 1], jnp.int32)
+        text_decoder_targets = jnp.ones([decoded_size, 1], jnp.int32)
+        text_decoder_masks = jnp.ones([decoded_size, 1], jnp.int32)
 
       text_logits, image_logits, image_decoder_targets = self.module.apply(
         {'params': params},
@@ -225,22 +250,36 @@ class UnifiedIOModel(nn.Module):
       )
 
       vocab_size = 33152
-      soft_targets = common_utils.onehot(text_decoder_targets, 33152, on_value=1.0, off_value=0.0)
-      padded_targets = jnp.zeros(soft_targets.shape[:2] + (text_logits.shape[-1] - vocab_size,))
-      soft_targets = jnp.concatenate([soft_targets, padded_targets], axis=-1)
-      total_loss = cross_entropy_with_logits(text_logits, soft_targets)
-      total_loss = total_loss * text_decoder_masks
+      if text_answer_options:
+        soft_targets = common_utils.onehot(text_decoder_targets, text_logits.shape[-1], on_value=1.0, off_value=0.0)
+        total_loss = cross_entropy_with_logits(text_logits, soft_targets)
+        total_loss = total_loss * text_decoder_masks
+        total_loss = jnp.sum(total_loss, axis=1)
+        if average_loss:
+          total_loss = total_loss / jnp.sum(text_decoder_masks, axis=1)
+        total_loss = jnp.reshape(total_loss, [batch_size, -1])
+      else:
+        soft_targets = common_utils.onehot(image_decoder_targets+vocab_size, image_logits.shape[-1])
+        total_loss = cross_entropy_with_logits(image_logits, soft_targets)
+        total_loss = total_loss * image_decoder_masks
+        total_loss = jnp.sum(total_loss, axis=1)
+        if average_loss:
+          total_loss = total_loss / jnp.sum(image_decoder_masks, axis=1)
+        total_loss = jnp.reshape(total_loss, [batch_size, -1])
 
-      text_loss = jnp.sum(total_loss, axis=1)
-      text_loss = jnp.reshape(text_loss, [batch_size, -1])
-      all_losses.append(text_loss)
+      all_losses.append(total_loss)
 
     text_loss = jnp.concatenate(all_losses, -1)
     selected_option_ix = jnp.argmin(text_loss, -1)
     ix = jnp.arange(0, len(selected_option_ix))
     selected_options = batch["output_options"][ix, selected_option_ix]
     selected_loss = text_loss[ix, selected_option_ix]
-    return {'scores': selected_loss, 'text_tokens': selected_options, "all_scores": text_loss}
+    out = {'scores': selected_loss, "all_scores": text_loss}
+    if text_answer_options:
+      out['text_tokens'] = selected_options
+    else:
+      out['image'] = jnp.clip((selected_options+1)/2.0, 0, 1)
+    return out
 
   def _compute_logits_from_slice(
       self, flat_ids: jnp.ndarray, flat_cache: Mapping[str, jnp.ndarray], cur_index: int,
