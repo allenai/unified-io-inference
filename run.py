@@ -82,12 +82,14 @@ def main():
           elif len(current_text) > 0:
             phrases.append(current_text)
             re_result = refexp(model, image, current_text)
+            logging.info(f"TEXT: {current_text}")
             draw(img, re_result, current_text)
             current_text = ''
 
       if len(current_text) > 0:
         phrases.append(current_text)
         re_result = refexp(model, image, current_text)
+        logging.info(f"TEXT: {current_text}")
         draw(img, re_result, current_text)
         current_text = ''         
 
@@ -112,7 +114,8 @@ def main():
 
       categorize_text = categorize["text"]
       caption_text = caption["text"]
-      write(img, f"1: {caption_text}\n2: {categorize_text}")
+      logging.info(f"1: {caption_text}\n2: {categorize_text}")
+#      write(img, f"1: {caption_text}\n2: {categorize_text}")
       out_image_path = image_path + '.boxes.png'
       img.save(out_image_path)
 
@@ -152,13 +155,13 @@ def draw(img, results, token):
         canvas.rectangle(shape, outline="red", width=w)
         text = str(results["text"])
         logging.info(f"DTEXT: {text} TOKEN: {token}")
-        font_size = 80 if width > 1000 else 50
-        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
-        canvas.text((x1-1,y1-1), token, font=font, fill="white")
-        canvas.text((x1-1,y1+1), token, font=font, fill="white")
-        canvas.text((x1+1,y1-1), token, font=font, fill="white")
-        canvas.text((x1+1,y1+1), token, font=font, fill="white")
-        canvas.text((x1,y1), token, font=font, fill="red")
+#        font_size = 80 if width > 1000 else 50
+#        font = ImageFont.truetype("DejaVuSans.ttf", font_size)
+#        canvas.text((x1-1,y1-1), token, font=font, fill="white")
+#        canvas.text((x1-1,y1+1), token, font=font, fill="white")
+#        canvas.text((x1+1,y1-1), token, font=font, fill="white")
+#        canvas.text((x1+1,y1+1), token, font=font, fill="white")
+#        canvas.text((x1,y1), token, font=font, fill="red")
 
 def write(img, text):
     logging.info(f"WTEXT: {text}")
