@@ -20,6 +20,7 @@ def main():
   parser.add_argument("model_size", choices=list(CONFIGS))
   parser.add_argument("model_weights")
   parser.add_argument("input_file")
+  parser.add_argument("captions_only", type=bool, action="store_true")
   args = parser.parse_args()
 
   model = runner.ModelRunner(args.model_size, args.model_weights)
@@ -50,20 +51,25 @@ def main():
       debug_output = json.dumps(j)
       logging.info((f"DEBUG CAPTION: {debug_output}")[0:1000])
 
-      categorize = model.vqa(image, "What is in this image ?")
-      j=[]
-      for k,v in categorize.items():
-        type_v = type(v)
-        try:
-          j.append({json.dumps(k):json.dumps(v)})
-        except:
-          j.append({json.dumps(k):f"NOT SERIALIZABLE: {type_v}"})
-      debug_output = json.dumps(j)
-      logging.info((f"DEBUG CATEGORIZE: {debug_output}")[0:1000])
+      # Categorize
+      if not args.captions_only:
+        categorize = model.vqa(image, "What is in this image ?")
+        j=[]
+        for k,v in categorize.items():
+          type_v = type(v)
+          try:
+            j.append({json.dumps(k):json.dumps(v)})
+          except:
+            j.append({json.dumps(k):f"NOT SERIALIZABLE: {type_v}"})
+        debug_output = json.dumps(j)
+        logging.info((f"DEBUG CATEGORIZE: {debug_output}")[0:1000])
 
-      categorize_text = categorize["text"]
-      caption_text = caption["text"]
-      all_text = f"{categorize_text} {caption_text}"
+        categorize_text = categorize["text"]
+        caption_text = caption["text"]
+        all_text = f"{categorize_text} {caption_text}"
+      else:
+        all_text = caption_text
+        categorize_text = ""
 
       phrases = []
       current_text = ''
@@ -93,47 +99,50 @@ def main():
         draw(img, re_result, current_text)
         current_text = ''         
 
-      output = model.vqa(image, "Locate all objects in the image .")
-      token = ''
-      ref_tokens = []
-      text = output["text"].replace("<"," <")
+      # Object detection
+      if not args.captions_only:
+        output = model.vqa(image, "Locate all objects in the image .")
+        token = ''
+        ref_tokens = []
+        text = output["text"].replace("<"," <")
 
-      for tok in text.split(" "):
-        if len(tok)>10 and tok.startswith("<extra_id_"):
-          ref_tokens.append(tok.strip())
-        elif 2 < len(str(tok).strip()):
-          token = tok.strip()
-          logging.info(f"DEBUG token: {token}, extra_ids: {len(ref_tokens)}")
-          ref_output = refexp(model, image, token)
-          draw(img, ref_output, token)
+        for tok in text.split(" "):
+          if len(tok)>10 and tok.startswith("<extra_id_"):
+            ref_tokens.append(tok.strip())
+          elif 2 < len(str(tok).strip()):
+            token = tok.strip()
+            logging.info(f"DEBUG token: {token}, extra_ids: {len(ref_tokens)}")
+            ref_output = refexp(model, image, token)
+            draw(img, ref_output, token)
 
-#          for i in ref_tokens:
-#            logging.info(f"SKIP: {i}")
-#            ref_output = refexp(model, image, i)
-          ref_tokens = []
+    #          for i in ref_tokens:
+    #            logging.info(f"SKIP: {i}")
+    #            ref_output = refexp(model, image, i)
+            ref_tokens = []
 
-      categorize_text = categorize["text"]
+      # categorize_text = categorize["text"]
       caption_text = caption["text"]
       logging.info(f"1: {caption_text}\n2: {categorize_text}")
 #      write(img, f"1: {caption_text}\n2: {categorize_text}")
       out_image_path = image_path + '.boxes.png'
       img.save(out_image_path)
 
-      j=[]
-      for k,v in output.items():
-        type_v = type(v)
-        try:
-          j.append({json.dumps(k):json.dumps(v)})
-        except:
-          j.append({json.dumps(k):f"NOT SERIALIZABLE: {type_v}"})
+      if not args.captions_only:
+        j=[]
+        for k,v in output.items():
+          type_v = type(v)
+          try:
+            j.append({json.dumps(k):json.dumps(v)})
+          except:
+            j.append({json.dumps(k):f"NOT SERIALIZABLE: {type_v}"})
 
-      debug_output = json.dumps(j)
-      logging.info((f"DEBUG: {debug_output}")[0:1000])
+        debug_output = json.dumps(j)
+        logging.info((f"DEBUG: {debug_output}")[0:1000])
 
-      output_text = output["text"]
-      with open(output_file, 'a') as of:
-        of.write(f"{image_path}:{question}:{output_text}\n")
-      logging.info(f"Output: {output_text}\n\n")
+        output_text = output["text"]
+        with open(output_file, 'a') as of:
+          of.write(f"{image_path}:{question}:{output_text}\n")
+        logging.info(f"Output: {output_text}\n\n")
 
 def log(results):
     text = results["text"]
