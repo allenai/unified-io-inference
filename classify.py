@@ -5,11 +5,12 @@ from PIL import Image, ImageDraw, ImageFont
 from uio import runner
 from uio.configs import CONFIGS
 from uio import utils
+from uio.runner import IMAGE_TAGGING
 import numpy as np
 import spacy
 from absl import logging
-import warnings
 from pathlib import Path
+import warnings
 # flax kicks up a lot of future warnings at the moment, ignore them
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -21,16 +22,16 @@ def main():
   parser.add_argument("model_size", choices=list(CONFIGS))
   parser.add_argument("model_weights")
   parser.add_argument("input_file")
-  parser.add_argument("classes_file")
+  parser.add_argument("classes_file", type=Path, required=True, help = "JSON file containing class names.")
   parser.add_argument("output_file")
 
   args = parser.parse_args()
-  input_file = open(args.input_file,'r')
+  input_file = args.input_file
   output_file = args.output_file
   
   model = runner.ModelRunner(args.model_size, args.model_weights)
   
-  with open(args.classes_file,'r') as fp:
+  with args.classes_file.open('r') as fp:
     classes_dict = json.load(fp)
     classes = classes_dict['classes']
 
@@ -54,4 +55,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
