@@ -38,4 +38,4 @@ ENV PYTHONPATH=/root/uio
 COPY . .
 RUN bash -c ". activate uioi && export PYTHONPATH=/root:/root/uio && python ./uio/test/check.py"
 ENV INPUT_FILE=demo.list
-ENTRYPOINT bash -c ". activate uioi && python ./run.py xl xl.bin $INPUT_FILE"
+ENTRYPOINT bash -c ". activate uioi && python ./caption.py xl xl.bin $VG_INPUT_FILE output.txt"
