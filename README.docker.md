@@ -4,31 +4,8 @@ To build a docker image:
 ```bash
 docker build -t unified-io-inference .
 ```
-To run the docker demo:
-```
-docker run -it --gpus=1 unified-io-inference
-INFO:absl:Setting up model...
-...
-INFO:absl:Model is ready
-INFO:absl:Running model text_inputs=['what color is the sofa?']
-green
-```
 
-To run a list of queries construct an input file where each line if a file path
-and a text input, separated by ':'.
-Prepare a directory containing image files.  'cd' to that directory.
-The steps below with write example input files and docker execution with the 
-host images mounted to the `/image-data` directory.
-
-```
-ls -1 | grep -E 'jpg|png' > files.txt
-awk '{print "/image-data/" $0 ":What does the image describe?"}' ./files.txt > caption.txt
-awk '{print "/image-data/" $0 ":Locate all objects in the image."}' ./files.txt > locate.txt
-
-#Choose an input file to process:
-export INPUT_FILE=[caption.txt or locate.txt or other]
-export HOSTPATH=$(pwd)
-echo ${HOSTPATH}${INPUT_FILE}
-docker run -it --gpus=1 -e INPUT_FILE=/image-data/${INPUT_FILE} \
-  -v ${HOSTPATH}:/image-data unified-io-inference
+To run captioning of the CC12M dataset using Unified-IO:
+```bash
+docker run -it --gpus=1 -e WEBDATASET_FILE=/input/00000.tar -v /nas/gaia02/data/paper2023/cc12m/images:/input -v /nas/gaia02/users/napiersk/github/feb-14/unified-io-inference/output:/output -e SAMPLE_COUNT=500 unified-io-inference
 ```

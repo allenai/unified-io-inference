@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.7.0-devel-ubuntu20.04
+FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 LABEL name="unified-io-inference"
 
 WORKDIR /root/.conda
@@ -29,13 +29,12 @@ RUN bash -c ". activate uioi && pip install --upgrade pip \
  -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
  && python3 -m pip install -r requirements.txt"
 
-RUN bash -c ". activate uioi && pip install matplotlib notebook"
-RUN bash -c ". activate uioi && pip install setuptools wheel && pip install spacy \
- && python3 -m spacy download en_core_web_sm"
+RUN bash -c ". activate uioi && pip install matplotlib notebook numpy==1.23.5 nvidia-cudnn-cu11==8.6.0.163 setuptools wheel spacy webdataset && python3 -m spacy download en_core_web_sm"
 
 ENV PYTHONPATH=/root/uio
 
 COPY . .
 RUN bash -c ". activate uioi && export PYTHONPATH=/root:/root/uio && python ./uio/test/check.py"
-ENV INPUT_FILE=demo.list
-ENTRYPOINT bash -c ". activate uioi && python ./caption.py xl xl.bin $VG_INPUT_FILE output.txt"
+ENV OUTPUT_FILE=/output/output.txt
+ENV SAMPLE_COUNT=1
+ENTRYPOINT bash -c ". activate uioi && python ./caption.py xl xl.bin $WEBDATASET_FILE $OUTPUT_FILE $SAMPLE_COUNT"
