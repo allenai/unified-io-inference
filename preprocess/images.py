@@ -3,19 +3,14 @@ from pathlib import Path
 from uio.runner import IMAGE_TAGGING
 
 DEFAULT_QUESTION = IMAGE_TAGGING
-ALTERNATE_QUESTIONS = ['what type is this?', 'classify this image.',
-		      'categorize this image.', 'put this image in a class.',
-					'what type is this?', 'image, classify.']
 
-def preprocess_images(images_dir: Path, alternate_prompts = False):
+def preprocess_images(images_dir: Path):
 	uio_file_contents = []
-	for input_file in images_dir.rglob("*.jpg"):
-		uio_line = f"{input_file.absolute()}:{DEFAULT_QUESTION}"
-		uio_file_contents.append(uio_line)
-		if alternate_prompts:
-			uio_lines = [f"{input_file.absolute()}:{q}" for q in ALTERNATE_QUESTIONS]
-			uio_file_contents.extend(uio_lines)
-
+	img_filetypes = ['*.jpg','*.png']
+	for filetype in img_filetypes:
+			for input_file in images_dir.rglob(filetype):
+				uio_line = f"{input_file.absolute()}:{DEFAULT_QUESTION}"
+				uio_file_contents.append(uio_line)
 	return uio_file_contents 
 
 def main():

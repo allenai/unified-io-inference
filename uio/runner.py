@@ -396,10 +396,10 @@ class ModelRunner:
       num_decodes=num_decodes, answer_options=answer_options)
     return self._extract_text(out)
 
-  def image_classification(self, image, num_decodes=None, answer_options=None) -> Dict:
+  def image_classification(self, image, num_decodes=None, answer_options=None, prompt=IMAGE_TAGGING) -> Dict:
     """Return the class of the `image`, constrain the outputs to `answer_options` if given"""
     out = self.run(
-      [image], [IMAGE_TAGGING], output_text_len=32, generate_image=False,
+      [image], [prompt], output_text_len=32, generate_image=False,
       num_decodes=num_decodes, answer_options=answer_options)
     return self._extract_text(out)
 
