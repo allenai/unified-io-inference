@@ -40,7 +40,16 @@ RUN apt-get -y install git tree nano
 WORKDIR /root/vizwiz/
 RUN git clone https://github.com/Yinan-Zhao/vizwiz-caption.git
 WORKDIR /root/vizwiz/vizwiz-caption
+RUN apt-get -y install unzip 
 RUN bash ./get_stanford_models.sh
+#RUN wget http://nlp.stanford.edu/software/stanford-corenlp-full-2015-12-09.zip
+
+#RUN export danny=$(find /root -name 'stanford-corenlp-3.6.0.jar')
+#RUN export danny=$(find /root/vizwiz -name '*.jar')
+#RUN echo $danny
+#RUN fjdsfdsfdsf
+
+COPY eval-vizwiz.py .
 WORKDIR /root
 
 COPY vizwiz.yml .
@@ -48,6 +57,17 @@ RUN bash -c "conda env create -f vizwiz.yml"
 RUN bash -c ". activate vizwiz && pip install --upgrade pip \
  && python3 -m pip install matplotlib notebook numpy==1.23.5"
 
+WORKDIR /root/vizwiz/vizwiz-caption/annotations
+# TODO create small sample annotations file for testing
+COPY val.json val.json
+
+#ENV JAVA_HOME=
+#EXISTS: /root/vizwiz/vizwiz-caption/vizwiz_eval_cap/tokenizer/stanford-corenlp-3.4.1.jar
+ENV CLASSPATH=.;/root/vizwiz/vizwiz-caption;/root/vizwiz/vizwiz-caption/vizwiz_eval_cap/tokenizer
+WORKDIR /root/vizwiz/vizwiz-caption
+
+RUN bash -c ". activate vizwiz && python3 eval-vizwiz.py"
+WORKDIR /root
 
 COPY . .
 RUN bash -c ". activate uioi && export PYTHONPATH=/root:/root/uio && python ./uio/test/check.py"
