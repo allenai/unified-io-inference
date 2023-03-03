@@ -32,22 +32,14 @@ RUN bash -c ". activate uioi && pip install --upgrade pip \
 RUN bash -c ". activate uioi && pip install matplotlib notebook numpy==1.23.5 nvidia-cudnn-cu11==8.6.0.163 setuptools wheel spacy webdataset && python3 -m spacy download en_core_web_sm"
 
 ENV PYTHONPATH=/root/uio
-
-RUN apt-get -y install openjdk-8-jdk
-RUN java -version
-RUN apt-get -y install git tree nano
+RUN apt-get -y install openjdk-8-jdk 
+RUN apt-get update && apt-get -y upgrade && apt-get -y install unzip 
+RUN apt-get update && apt-get -y upgrade && apt-get -y install git
 
 WORKDIR /root/vizwiz/
 RUN git clone https://github.com/Yinan-Zhao/vizwiz-caption.git
 WORKDIR /root/vizwiz/vizwiz-caption
-RUN apt-get -y install unzip 
 RUN bash ./get_stanford_models.sh
-#RUN wget http://nlp.stanford.edu/software/stanford-corenlp-full-2015-12-09.zip
-
-#RUN export danny=$(find /root -name 'stanford-corenlp-3.6.0.jar')
-#RUN export danny=$(find /root/vizwiz -name '*.jar')
-#RUN echo $danny
-#RUN fjdsfdsfdsf
 
 COPY eval-vizwiz.py .
 WORKDIR /root
@@ -61,17 +53,15 @@ WORKDIR /root/vizwiz/vizwiz-caption/annotations
 # TODO create small sample annotations file for testing
 COPY val.json val.json
 
-#ENV JAVA_HOME=
-#EXISTS: /root/vizwiz/vizwiz-caption/vizwiz_eval_cap/tokenizer/stanford-corenlp-3.4.1.jar
 ENV CLASSPATH=.;/root/vizwiz/vizwiz-caption;/root/vizwiz/vizwiz-caption/vizwiz_eval_cap/tokenizer
 WORKDIR /root/vizwiz/vizwiz-caption
 
-RUN bash -c ". activate vizwiz && python3 eval-vizwiz.py"
+#RUN bash -c ". activate vizwiz && python3 eval-vizwiz.py"
 WORKDIR /root
 
 COPY . .
 RUN bash -c ". activate uioi && export PYTHONPATH=/root:/root/uio && python ./uio/test/check.py"
-ENV OUTPUT_FILE=/output/output.txt
+ENV OUTPUT_FILE=/output/vizwiz-captions.json
 ENV IMAGE_DIR=/images
-ENV SAMPLE_COUNT=1
+ENV SAMPLE_COUNT=5
 ENTRYPOINT bash -c ". activate uioi && python ./caption-vizwiz.py xl xl.bin $VIZWIZ_FILE $IMAGE_DIR $OUTPUT_FILE $SAMPLE_COUNT"

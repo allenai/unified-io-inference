@@ -38,26 +38,37 @@ def main():
   vizwiz_data = json.load(vizwiz_file)
   annotations = vizwiz_data['annotations']
 
-  count = 0
+  captions = []
+  image_ids = []
+
   for anno in annotations:
     try:
+#      print('ANNO: ' + str(anno))
       image_id = anno['image_id']
-      print(str(image_id) + ': ' + anno['caption'])
-#Ex: VizWiz_test_00000000.jpg
-      image_path = f"{args.image_dir}/VizWiz_test_{image_id:08d}.jpg"
-      logging.info(f"Processing image: {image_path}")
-      with Image.open(image_path) as img:
-        image = np.array(img.convert('RGB'))
-        output = model.vqa(image, "What does the image describe ?")
-        output_text = output["text"]
-        print(output_text)
-
-      count = count + 1
-      if count >= sample_count:
-        quit()
+      # ...is_rejected': True, 'id': 2, 'text_detected': True
+      if (not anno['is_rejected'] and anno['text_detected'] and image_id not in image_ids):
+        print(str(image_id) + ': ' + anno['caption'])
+        #TODO: Ex: VizWiz_test_00000000.jpg vs. train vs. val how best to switch?
+        image_path = f"{args.image_dir}/VizWiz_train_{image_id:08d}.jpg"
+        logging.info(f"Processing image: {image_path}")
+        with Image.open(image_path) as img:
+          image = np.array(img.convert('RGB'))
+          output = model.vqa(image, "What does the image describe ?")
+          output_text = output["text"]
+          print(output_text)
+          captions.append({"image_id": image_id, "caption": output_text})
+          logging.info(f"Captions: {len(captions)}")
+          image_ids.append(image_id)
+        if len(image_ids) >= sample_count:
+          break
     except AttributeError:
       print('AttributeError')
-  
+
+  logging.info(f"Writing: {output_file}")
+  with open(output_file, 'a') as f:
+    json.dump(captions, f)
+  logging.info(f"Wrote: {output_file}")  
+
   quit()
 
 # $ head /nas/gaia02/data/paper2023/vizwiz/data/annotations/train.json | cut -c -1000
